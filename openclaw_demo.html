@@ -1,0 +1,682 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captain Claw: OpenClaw 2D Platformer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background-color: #0f111a;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      font-size: 26px;
+      color: #f6ad55;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      letter-spacing: 1px;
+    }
+    .header p {
+      font-size: 13px;
+      color: #a0aec0;
+    }
+    .canvas-container {
+      position: relative;
+      border: 4px solid #4a5568;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+      background: #1a202c;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: #171d2b;
+    }
+    .controls-panel {
+      margin-top: 14px;
+      background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      padding: 10px 20px;
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: #cbd5e0;
+    }
+    .badge {
+      display: inline-block;
+      background: #2b6cb0;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-family: monospace;
+    }
+    .btn-action {
+      background: #dd6b20;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      transition: 0.2s;
+    }
+    .btn-action:hover { background: #ed8936; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>⚔️ Captain Claw: The Pirate Fortress</h1>
+    <p>OpenClaw Engine C++ Architecture Prototype | SDL2 Simulation</p>
+  </div>
+
+  <div class="canvas-container">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+  </div>
+
+  <div class="controls-panel">
+    <div>Move: <span class="badge">A / D</span> or <span class="badge">← / →</span></div>
+    <div>Jump: <span class="badge">Space</span> or <span class="badge">W</span></div>
+    <div>Sword Slash: <span class="badge">J</span> or <span class="badge">F</span></div>
+    <div>Restart: <span class="badge">R</span></div>
+    <button class="btn-action" onclick="resetGame()">Restart Level</button>
+  </div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Simple Synthesized Audio using Web Audio API
+  let audioCtx = null;
+  function getAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playSound(type) {
+    try {
+      const actx = getAudioContext();
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      const now = actx.currentTime;
+
+      if (type === 'jump') {
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(360, now + 0.15);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      } else if (type === 'slash') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'hit') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.18);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.18);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      } else if (type === 'coin') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.setValueAtTime(990, now + 0.08);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'win') {
+        osc.type = 'square';
+        [440, 554, 659, 880].forEach((freq, idx) => {
+          const o = actx.createOscillator();
+          const g = actx.createGain();
+          o.connect(g); g.connect(actx.destination);
+          o.frequency.value = freq;
+          g.gain.setValueAtTime(0.15, now + idx * 0.1);
+          g.gain.linearRampToValueAtTime(0.01, now + idx * 0.1 + 0.2);
+          o.start(now + idx * 0.1);
+          o.stop(now + idx * 0.1 + 0.2);
+        });
+      }
+    } catch (e) {
+      // Audio fallback silent
+    }
+  }
+
+  // Game Constants
+  const GRAVITY = 1100;
+  const MOVE_SPEED = 260;
+  const JUMP_FORCE = -500;
+  const COYOTE_TIME = 0.12;
+  const JUMP_BUFFER = 0.12;
+
+  // Level Geometry
+  const level = {
+    width: 3200,
+    height: 600,
+    tiles: [
+      // Ground Floors
+      { x: 0, y: 480, w: 800, h: 120 },
+      { x: 920, y: 480, w: 800, h: 120 },
+      { x: 1850, y: 480, w: 1350, h: 120 },
+      // Castle Platforms
+      { x: 220, y: 380, w: 140, h: 22 },
+      { x: 420, y: 300, w: 160, h: 22 },
+      { x: 640, y: 230, w: 150, h: 22 },
+      { x: 1000, y: 380, w: 150, h: 22 },
+      { x: 1220, y: 300, w: 160, h: 22 },
+      { x: 1440, y: 220, w: 170, h: 22 },
+      { x: 1950, y: 390, w: 140, h: 22 },
+      { x: 2160, y: 310, w: 140, h: 22 },
+      { x: 2380, y: 230, w: 180, h: 22 },
+      { x: 2650, y: 170, w: 220, h: 22 }
+    ],
+    hazards: [
+      { x: 800, y: 560, w: 120, h: 40 },
+      { x: 1720, y: 560, w: 130, h: 40 }
+    ],
+    collectibles: [
+      { x: 270, y: 340, w: 20, h: 20, type: 'coin', val: 100, collected: false },
+      { x: 480, y: 260, w: 20, h: 20, type: 'coin', val: 100, collected: false },
+      { x: 700, y: 190, w: 22, h: 22, type: 'ruby', val: 500, collected: false },
+      { x: 1050, y: 340, w: 20, h: 20, type: 'coin', val: 100, collected: false },
+      { x: 1280, y: 260, w: 20, h: 20, type: 'coin', val: 100, collected: false },
+      { x: 1500, y: 180, w: 24, h: 24, type: 'potion', val: 50, collected: false },
+      { x: 2440, y: 190, w: 22, h: 22, type: 'ruby', val: 500, collected: false },
+      { x: 2750, y: 130, w: 26, h: 26, type: 'crown', val: 1000, collected: false }
+    ],
+    gate: { x: 2950, y: 390, w: 60, h: 90 }
+  };
+
+  // Player State
+  const player = {
+    x: 80,
+    y: 380,
+    w: 32,
+    h: 46,
+    vx: 0,
+    vy: 0,
+    facing: 1, // 1: Right, -1: Left
+    grounded: false,
+    coyoteTimer: 0,
+    jumpBufferTimer: 0,
+    isAttacking: false,
+    attackTimer: 0,
+    health: 100,
+    maxHealth: 100,
+    score: 0,
+    invulnTimer: 0,
+    dead: false,
+    won: false
+  };
+
+  // Enemies
+  let enemies = [];
+  function initEnemies() {
+    enemies = [
+      { x: 470, y: 254, w: 30, h: 44, startX: 470, range: 60, dir: 1, speed: 70, hp: 50, type: 'rat', dead: false },
+      { x: 1260, y: 254, w: 30, h: 44, startX: 1260, range: 75, dir: -1, speed: 85, hp: 80, type: 'officer', dead: false },
+      { x: 2200, y: 264, w: 30, h: 44, startX: 2200, range: 50, dir: 1, speed: 70, hp: 50, type: 'rat', dead: false },
+      { x: 2700, y: 124, w: 30, h: 44, startX: 2700, range: 80, dir: -1, speed: 90, hp: 80, type: 'officer', dead: false }
+    ];
+  }
+  initEnemies();
+
+  // Input Handling
+  const keys = {};
+  window.addEventListener('keydown', (e) => {
+    getAudioContext();
+    keys[e.key.toLowerCase()] = true;
+    keys[e.code] = true;
+
+    if (e.code === 'Space' || e.key === 'w' || e.key === 'ArrowUp') {
+      player.jumpBufferTimer = JUMP_BUFFER;
+    }
+    if (e.key === 'j' || e.key === 'f' || e.key === 'Control') {
+      if (!player.isAttacking && !player.dead) {
+        player.isAttacking = true;
+        player.attackTimer = 0.22;
+        playSound('slash');
+      }
+    }
+    if (e.key === 'r') {
+      resetGame();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
+    keys[e.code] = false;
+  });
+
+  function resetGame() {
+    player.x = 80;
+    player.y = 380;
+    player.vx = 0;
+    player.vy = 0;
+    player.health = 100;
+    player.score = 0;
+    player.invulnTimer = 0;
+    player.dead = false;
+    player.won = false;
+    player.isAttacking = false;
+    level.collectibles.forEach(c => c.collected = false);
+    initEnemies();
+  }
+
+  // Camera
+  let cameraX = 0;
+
+  // Game Loop
+  let lastTime = performance.now();
+
+  function update(dt) {
+    if (player.dead || player.won) return;
+
+    // Timers
+    if (player.jumpBufferTimer > 0) player.jumpBufferTimer -= dt;
+    if (player.coyoteTimer > 0) player.coyoteTimer -= dt;
+    if (player.invulnTimer > 0) player.invulnTimer -= dt;
+
+    // Attack timer
+    if (player.isAttacking) {
+      player.attackTimer -= dt;
+      if (player.attackTimer <= 0) {
+        player.isAttacking = false;
+      }
+    }
+
+    // Horizontal Movement
+    const moveLeft = keys['a'] || keys['arrowleft'];
+    const moveRight = keys['d'] || keys['arrowright'];
+
+    if (moveLeft && !moveRight) {
+      player.vx = -MOVE_SPEED;
+      player.facing = -1;
+    } else if (moveRight && !moveLeft) {
+      player.vx = MOVE_SPEED;
+      player.facing = 1;
+    } else {
+      player.vx *= 0.75;
+      if (Math.abs(player.vx) < 5) player.vx = 0;
+    }
+
+    // Jump Logic (Coyote Time + Buffering)
+    if (player.jumpBufferTimer > 0 && (player.grounded || player.coyoteTimer > 0)) {
+      player.vy = JUMP_FORCE;
+      player.grounded = false;
+      player.coyoteTimer = 0;
+      player.jumpBufferTimer = 0;
+      playSound('jump');
+    }
+
+    // Variable jump height
+    if (!keys['space'] && !keys['w'] && !keys['arrowup'] && player.vy < -150) {
+      player.vy = -150;
+    }
+
+    // Apply Gravity
+    player.vy += GRAVITY * dt;
+    if (player.vy > 700) player.vy = 700;
+
+    // Horizontal Collision
+    player.x += player.vx * dt;
+    for (let t of level.tiles) {
+      if (checkAABB(player, t)) {
+        if (player.vx > 0) player.x = t.x - player.w;
+        else if (player.vx < 0) player.x = t.x + t.w;
+        player.vx = 0;
+      }
+    }
+
+    // Vertical Collision
+    const wasGrounded = player.grounded;
+    player.grounded = false;
+    player.y += player.vy * dt;
+
+    for (let t of level.tiles) {
+      if (checkAABB(player, t)) {
+        if (player.vy > 0) {
+          player.y = t.y - player.h;
+          player.vy = 0;
+          player.grounded = true;
+          player.coyoteTimer = COYOTE_TIME;
+        } else if (player.vy < 0) {
+          player.y = t.y + t.h;
+          player.vy = 0;
+        }
+      }
+    }
+
+    if (wasGrounded && !player.grounded && player.vy >= 0) {
+      player.coyoteTimer = COYOTE_TIME;
+    }
+
+    // Check hazards & bottom pit
+    for (let h of level.hazards) {
+      if (checkAABB(player, h)) {
+        player.health = 0;
+        player.dead = true;
+        playSound('hit');
+      }
+    }
+    if (player.y > 650) {
+      player.health = 0;
+      player.dead = true;
+      playSound('hit');
+    }
+
+    // Check Collectibles
+    for (let c of level.collectibles) {
+      if (!c.collected && checkAABB(player, c)) {
+        c.collected = true;
+        playSound('coin');
+        if (c.type === 'potion') {
+          player.health = Math.min(player.maxHealth, player.health + c.val);
+        } else {
+          player.score += c.val;
+        }
+      }
+    }
+
+    // Check Goal Gate
+    if (checkAABB(player, level.gate)) {
+      player.won = true;
+      playSound('win');
+    }
+
+    // Update Enemies
+    for (let e of enemies) {
+      if (e.dead) continue;
+
+      e.x += e.dir * e.speed * dt;
+      if (e.x > e.startX + e.range) e.dir = -1;
+      if (e.x < e.startX - e.range) e.dir = 1;
+
+      // Contact with player
+      if (!player.dead && player.invulnTimer <= 0 && checkAABB(player, e)) {
+        player.health -= 20;
+        player.invulnTimer = 0.9;
+        player.vy = -200;
+        player.vx = (player.x > e.x ? 180 : -180);
+        playSound('hit');
+        if (player.health <= 0) {
+          player.dead = true;
+        }
+      }
+
+      // Attack enemy with sword
+      if (player.isAttacking) {
+        const swordHitbox = {
+          x: player.facing === 1 ? player.x + player.w : player.x - 24,
+          y: player.y + 10,
+          w: 24,
+          h: 26
+        };
+        if (checkAABB(swordHitbox, e)) {
+          e.hp -= 40;
+          e.x += player.facing * 16;
+          playSound('hit');
+          if (e.hp <= 0) {
+            e.dead = true;
+            player.score += 200;
+          }
+        }
+      }
+    }
+
+    // Smooth Camera Lerp
+    const targetCamX = player.x - canvas.width * 0.45;
+    cameraX += (targetCamX - cameraX) * 0.08;
+    cameraX = Math.max(0, Math.min(cameraX, level.width - canvas.width));
+  }
+
+  function checkAABB(a, b) {
+    return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Parallax Dungeon Background
+    ctx.save();
+    ctx.fillStyle = "#151928";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Parallax castle columns
+    ctx.fillStyle = "#22273d";
+    const bgOffset = cameraX * 0.25;
+    for (let i = 0; i < 24; i++) {
+      const px = i * 180 - (bgOffset % 180);
+      ctx.fillRect(px, 40, 50, 420);
+      ctx.fillStyle = "#2d3450";
+      ctx.fillRect(px + 4, 60, 42, 10);
+      ctx.fillStyle = "#22273d";
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(-cameraX, 0);
+
+    // Draw Solid Tiles
+    for (let t of level.tiles) {
+      // Brick texture fill
+      ctx.fillStyle = "#5c4d44";
+      ctx.fillRect(t.x, t.y, t.w, t.h);
+
+      // Brick rim
+      ctx.fillStyle = "#8c7567";
+      ctx.fillRect(t.x, t.y, t.w, 4);
+
+      // Stone lines
+      ctx.strokeStyle = "#382d27";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(t.x, t.y, t.w, t.h);
+    }
+
+    // Draw Hazards (Spikes)
+    ctx.fillStyle = "#e53e3e";
+    for (let h of level.hazards) {
+      ctx.fillRect(h.x, h.y, h.w, h.h);
+      ctx.fillStyle = "#feb2b2";
+      for (let sx = h.x; sx < h.x + h.w; sx += 12) {
+        ctx.beginPath();
+        ctx.moveTo(sx, h.y + h.h);
+        ctx.lineTo(sx + 6, h.y);
+        ctx.lineTo(sx + 12, h.y + h.h);
+        ctx.fill();
+      }
+    }
+
+    // Draw Collectibles
+    const now = performance.now() * 0.005;
+    for (let c of level.collectibles) {
+      if (c.collected) continue;
+      const bob = Math.sin(now + c.x) * 4;
+
+      if (c.type === 'ruby') {
+        ctx.fillStyle = "#e53e3e";
+        ctx.beginPath();
+        ctx.arc(c.x + c.w/2, c.y + c.h/2 + bob, c.w/2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#feb2b2";
+        ctx.stroke();
+      } else if (c.type === 'potion') {
+        ctx.fillStyle = "#38a169";
+        ctx.fillRect(c.x, c.y + bob, c.w, c.h);
+        ctx.fillStyle = "#9ae6b4";
+        ctx.fillRect(c.x + 4, c.y + bob - 4, c.w - 8, 4);
+      } else if (c.type === 'crown') {
+        ctx.fillStyle = "#ecc94b";
+        ctx.fillRect(c.x, c.y + bob, c.w, c.h);
+        ctx.fillStyle = "#d69e2e";
+        ctx.fillRect(c.x + 2, c.y + 2 + bob, c.w - 4, c.h - 4);
+      } else {
+        // Gold Coin
+        ctx.fillStyle = "#ecc94b";
+        ctx.beginPath();
+        ctx.arc(c.x + c.w/2, c.y + c.h/2 + bob, c.w/2, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = "#d69e2e";
+        ctx.stroke();
+      }
+    }
+
+    // Exit Gate
+    ctx.fillStyle = "#744210";
+    ctx.fillRect(level.gate.x, level.gate.y, level.gate.w, level.gate.h);
+    ctx.strokeStyle = "#ecc94b";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(level.gate.x, level.gate.y, level.gate.w, level.gate.h);
+    ctx.fillStyle = "#ecc94b";
+    ctx.font = "bold 12px monospace";
+    ctx.fillText("EXIT", level.gate.x + 14, level.gate.y + 40);
+
+    // Draw Enemies
+    for (let e of enemies) {
+      if (e.dead) continue;
+
+      ctx.save();
+      ctx.fillStyle = e.type === 'officer' ? '#c53030' : '#795548';
+      ctx.fillRect(e.x, e.y, e.w, e.h);
+
+      // Enemy head & hat
+      ctx.fillStyle = '#2d3748';
+      ctx.fillRect(e.x + (e.dir === 1 ? 14 : 2), e.y - 6, 16, 8);
+
+      // Health tick
+      ctx.fillStyle = '#48bb78';
+      ctx.fillRect(e.x, e.y - 12, (e.w * (e.hp / (e.type === 'officer' ? 80 : 50))), 4);
+      ctx.restore();
+    }
+
+    // Draw Player (Captain Claw)
+    if (!player.dead) {
+      ctx.save();
+      // Invulnerability flash
+      if (player.invulnTimer > 0 && Math.floor(performance.now() / 80) % 2 === 0) {
+        ctx.globalAlpha = 0.4;
+      }
+
+      // Pirate Blue Coat
+      ctx.fillStyle = "#2b4c7e";
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+
+      // Gold Belt & Sash
+      ctx.fillStyle = "#d69e2e";
+      ctx.fillRect(player.x, player.y + 24, player.w, 6);
+
+      // Pirate Tricorne / Bicorne Hat
+      ctx.fillStyle = "#1a202c";
+      ctx.fillRect(player.x - 4, player.y - 8, player.w + 8, 10);
+      ctx.fillStyle = "#ecc94b";
+      ctx.fillRect(player.x - 4, player.y - 8, player.w + 8, 2);
+
+      // Sword Slash Animation
+      if (player.isAttacking) {
+        ctx.fillStyle = "#e2e8f0";
+        const sx = player.facing === 1 ? player.x + player.w : player.x - 24;
+        ctx.beginPath();
+        ctx.arc(sx + 12, player.y + 20, 20, player.facing === 1 ? -0.8 : 2.4, player.facing === 1 ? 0.8 : 3.8);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = "rgba(255, 255, 230, 0.85)";
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    ctx.restore(); // Exit camera space
+
+    // UI & HUD
+    ctx.save();
+    // Health Bar
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(20, 20, 204, 22);
+    const hpWidth = Math.max(0, (player.health / player.maxHealth) * 200);
+    ctx.fillStyle = "#e53e3e";
+    ctx.fillRect(22, 22, hpWidth, 18);
+    ctx.strokeStyle = "#ecc94b";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, 204, 22);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 11px monospace";
+    ctx.fillText(`HP: ${player.health}/${player.maxHealth}`, 30, 35);
+
+    // Score & Gems
+    ctx.fillStyle = "#ecc94b";
+    ctx.font = "bold 16px sans-serif";
+    ctx.fillText(`SCORE: ${player.score}`, 250, 36);
+
+    // Game Over / Win banners
+    if (player.dead) {
+      ctx.fillStyle = "rgba(0,0,0,0.75)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#e53e3e";
+      ctx.font = "bold 38px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2 - 10);
+      ctx.fillStyle = "#edf2f7";
+      ctx.font = "18px sans-serif";
+      ctx.fillText("Press 'R' or click Restart to Try Again", canvas.width/2, canvas.height/2 + 30);
+    } else if (player.won) {
+      ctx.fillStyle = "rgba(0,0,0,0.75)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ecc94b";
+      ctx.font = "bold 38px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("LEVEL COMPLETE!", canvas.width/2, canvas.height/2 - 10);
+      ctx.fillStyle = "#68d391";
+      ctx.font = "20px sans-serif";
+      ctx.fillText(`Final Score: ${player.score}`, canvas.width/2, canvas.height/2 + 25);
+      ctx.fillStyle = "#cbd5e0";
+      ctx.font = "15px sans-serif";
+      ctx.fillText("Press 'R' to play again", canvas.width/2, canvas.height/2 + 55);
+    }
+
+    ctx.restore();
+  }
+
+  function loop(currentTime) {
+    const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+    lastTime = currentTime;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>

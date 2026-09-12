@@ -1,0 +1,33 @@
+﻿# CMake build outputs
+build/
+bin/
+lib/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Visual Studio & VS Code
+.vs/
+*.sln
+*.vcxproj*
+.vscode/
+*.user
+
+# Compiled Binaries & Objects
+*.obj
+*.o
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.ilk
+
+# Package Managers
+vcpkg_installed/
+
+# OS Specific
+.DS_Store
+Thumbs.db
