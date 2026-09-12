@@ -10,6 +10,14 @@ A modernized 2D action platformer inspired by the classic 1997 game **Captain Cl
 
 ---
 
+## 🎮 Gameplay Preview
+
+![OpenClaw Gameplay Demo](docs/gameplay.gif)
+
+*Capturing Captain Claw running, jumping across platforms with Coyote Time, collecting pirate rubies, and slashing patrolling enemy guards.*
+
+---
+
 ## 🌟 Overview & Highlights
 
 This project implements core components of a high-performance 2D platforming engine modeled after the OpenClaw architecture:
@@ -38,7 +46,7 @@ This project implements core components of a high-performance 2D platforming eng
 
 ---
 
-## 🎮 Controls
+## 🕹️ Controls
 
 | Action | Primary Key | Alternate Key |
 | :--- | :--- | :--- |
@@ -74,7 +82,7 @@ OpenClaw::Game
 ### Building on Windows (Visual Studio / CMake)
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/openclaw-platformer.git
+git clone https://github.com/KLUsujith/openclaw-platformer.git
 cd openclaw-platformer
 
 # Configure and Build
@@ -92,7 +100,7 @@ sudo apt-get update
 sudo apt-get install -y libsdl2-dev cmake build-essential
 
 # Configure and Build
-git clone https://github.com/<your-username>/openclaw-platformer.git
+git clone https://github.com/KLUsujith/openclaw-platformer.git
 cd openclaw-platformer
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
@@ -103,8 +111,8 @@ cmake --build build -j$(nproc)
 
 ---
 
-## 🧪 Automated CI/CD
-This repository includes a multi-platform **GitHub Actions** workflow (`.github/workflows/build.yml`) that automatically compiles and validates the codebase on both **Windows (MSVC)** and **Ubuntu Linux (GCC)** on every push.
+## 🌐 Instant Playable Web Demo
+A zero-install interactive edition of this game engine is included in [`openclaw_demo.html`](openclaw_demo.html). Simply open the file in Google Chrome, Microsoft Edge, or Firefox to play immediately with keyboard controls and retro sound effects!
 
 ---
 
